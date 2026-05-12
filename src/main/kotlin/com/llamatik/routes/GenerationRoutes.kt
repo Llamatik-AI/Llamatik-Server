@@ -20,6 +20,7 @@ import com.llamatik.api.SessionSaveRequest
 import com.llamatik.api.UpdateParamsRequest
 import com.llamatik.library.platform.GenStream
 import com.llamatik.llama.LlamaService
+import com.llamatik.llama.LlamaServicePort
 import com.llamatik.util.Sse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -60,17 +61,13 @@ private const val GENERATION_MODEL_FINETUNE_TYPE = "$GENERATION/model/finetuneTy
 private const val GENERATION_MODEL_CHAT_TEMPLATE = "$GENERATION/model/chatTemplate"
 private const val GENERATION_MODEL_APPLY_CHAT_TEMPLATE = "$GENERATION/model/applyChatTemplate"
 
-/**
- * Mirrors the Llamatik library API for generation.
- */
 @Suppress("TooGenericExceptionCaught")
-fun Route.generationRoutes() {
+fun Route.generationRoutes(service: LlamaServicePort = LlamaService) {
 
     // --- initialization ---
     post(GENERATION_INIT) {
         val req = call.receive<InitModelRequest>()
-        val res = LlamaService.initGenerateModel(req.modelPath)
-        res.fold(
+        service.initGenerateModel(req.modelPath).fold(
             onSuccess = { call.respond(InitModelResponse(ok = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Init failed") }
         )
@@ -79,8 +76,7 @@ fun Route.generationRoutes() {
     // --- non-streaming ---
     post(GENERATION_GENERATE) {
         val req = call.receive<GenerateRequest>()
-        val res = LlamaService.generate(req.prompt)
-        res.fold(
+        service.generate(req.prompt).fold(
             onSuccess = { call.respond(GenerateResponse(text = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Generation failed") }
         )
@@ -88,8 +84,7 @@ fun Route.generationRoutes() {
 
     post(GENERATION_GENERATE_WITH_CONTEXT) {
         val req = call.receive<GenerateWithContextRequest>()
-        val res = LlamaService.generateWithContext(req.systemPrompt, req.contextBlock, req.userPrompt)
-        res.fold(
+        service.generateWithContext(req.systemPrompt, req.contextBlock, req.userPrompt).fold(
             onSuccess = { call.respond(GenerateResponse(text = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Generation failed") }
         )
@@ -97,8 +92,7 @@ fun Route.generationRoutes() {
 
     post(GENERATION_GENERATE_JSON) {
         val req = call.receive<GenerateJsonRequest>()
-        val res = LlamaService.generateJson(req.prompt, req.jsonSchema)
-        res.fold(
+        service.generateJson(req.prompt, req.jsonSchema).fold(
             onSuccess = { call.respond(GenerateResponse(text = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Generation failed") }
         )
@@ -106,8 +100,7 @@ fun Route.generationRoutes() {
 
     post(GENERATION_GENERATE_JSON_WITH_CONTEXT) {
         val req = call.receive<GenerateJsonWithContextRequest>()
-        val res = LlamaService.generateJsonWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, req.jsonSchema)
-        res.fold(
+        service.generateJsonWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, req.jsonSchema).fold(
             onSuccess = { call.respond(GenerateResponse(text = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Generation failed") }
         )
@@ -115,8 +108,7 @@ fun Route.generationRoutes() {
 
     post(GENERATION_CONTINUE) {
         val req = call.receive<GenerateContinueRequest>()
-        val res = LlamaService.generateContinue(req.prompt)
-        res.fold(
+        service.generateContinue(req.prompt).fold(
             onSuccess = { call.respond(GenerateResponse(text = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Generation failed") }
         )
@@ -125,27 +117,24 @@ fun Route.generationRoutes() {
     // --- params / cancel / shutdown ---
     post(GENERATION_PARAMS) {
         val req = call.receive<UpdateParamsRequest>()
-        val res = LlamaService.updateGenerateParams(
+        service.updateGenerateParams(
             req.temperature, req.maxTokens, req.topP, req.topK, req.repeatPenalty,
             req.contextLength, req.numThreads, req.useMmap, req.flashAttention, req.batchSize
-        )
-        res.fold(
+        ).fold(
             onSuccess = { call.respond(OkResponse()) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Param update failed") }
         )
     }
 
     post(GENERATION_CANCEL) {
-        val res = LlamaService.cancelGenerate()
-        res.fold(
+        service.cancelGenerate().fold(
             onSuccess = { call.respond(OkResponse()) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Cancel failed") }
         )
     }
 
     post(GENERATION_SHUTDOWN) {
-        val res = LlamaService.shutdown()
-        res.fold(
+        service.shutdown().fold(
             onSuccess = { call.respond(OkResponse()) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Shutdown failed") }
         )
@@ -153,8 +142,7 @@ fun Route.generationRoutes() {
 
     // --- KV session management ---
     post(GENERATION_SESSION_RESET) {
-        val res = LlamaService.sessionReset()
-        res.fold(
+        service.sessionReset().fold(
             onSuccess = { call.respond(SessionResult(ok = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Session reset failed") }
         )
@@ -162,8 +150,7 @@ fun Route.generationRoutes() {
 
     post(GENERATION_SESSION_SAVE) {
         val req = call.receive<SessionSaveRequest>()
-        val res = LlamaService.sessionSave(req.path)
-        res.fold(
+        service.sessionSave(req.path).fold(
             onSuccess = { call.respond(SessionResult(ok = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Session save failed") }
         )
@@ -171,8 +158,7 @@ fun Route.generationRoutes() {
 
     post(GENERATION_SESSION_LOAD) {
         val req = call.receive<SessionLoadRequest>()
-        val res = LlamaService.sessionLoad(req.path)
-        res.fold(
+        service.sessionLoad(req.path).fold(
             onSuccess = { call.respond(SessionResult(ok = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Session load failed") }
         )
@@ -180,16 +166,14 @@ fun Route.generationRoutes() {
 
     // --- model metadata ---
     get(GENERATION_MODEL_FINETUNE_TYPE) {
-        val res = LlamaService.getModelFinetuneType()
-        res.fold(
+        service.getModelFinetuneType().fold(
             onSuccess = { call.respond(ModelFinetuneTypeResponse(finetuneType = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Failed to get finetune type") }
         )
     }
 
     get(GENERATION_MODEL_CHAT_TEMPLATE) {
-        val res = LlamaService.getModelChatTemplate()
-        res.fold(
+        service.getModelChatTemplate().fold(
             onSuccess = { call.respond(ModelChatTemplateResponse(chatTemplate = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Failed to get chat template") }
         )
@@ -198,8 +182,7 @@ fun Route.generationRoutes() {
     post(GENERATION_MODEL_APPLY_CHAT_TEMPLATE) {
         val req = call.receive<ApplyChatTemplateRequest>()
         val pairs = req.messages.map { it.role to it.content }
-        val res = LlamaService.applyChatTemplate(pairs, req.addAssistantPrefix)
-        res.fold(
+        service.applyChatTemplate(pairs, req.addAssistantPrefix).fold(
             onSuccess = { call.respond(ApplyChatTemplateResponse(prompt = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Failed to apply chat template") }
         )
@@ -207,25 +190,19 @@ fun Route.generationRoutes() {
 
     // --- streaming (SSE) ---
     postSseStream<GenerateRequest>(GENERATION_STREAM) { req, cb ->
-        LlamaService.generateStream(req.prompt, cb)
+        service.generateStream(req.prompt, cb)
     }
 
     postSseStream<GenerateWithContextRequest>(GENERATION_STREAM_WITH_CONTEXT) { req, cb ->
-        LlamaService.generateStreamWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, cb)
+        service.generateStreamWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, cb)
     }
 
     postSseStream<GenerateJsonRequest>(GENERATION_JSON_STREAM) { req, cb ->
-        LlamaService.generateJsonStream(req.prompt, req.jsonSchema, cb)
+        service.generateJsonStream(req.prompt, req.jsonSchema, cb)
     }
 
     postSseStream<GenerateJsonWithContextRequest>(GENERATION_JSON_STREAM_WITH_CONTEXT) { req, cb ->
-        LlamaService.generateJsonStreamWithContext(
-            req.systemPrompt,
-            req.contextBlock,
-            req.userPrompt,
-            req.jsonSchema,
-            cb
-        )
+        service.generateJsonStreamWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, req.jsonSchema, cb)
     }
 }
 
@@ -242,7 +219,6 @@ private inline fun <reified T : Any> Route.postSseStream(
             val done = Channel<Unit>(capacity = 1)
             val errors = Channel<String>(capacity = 1)
             val cb = Sse.genStreamCallback(
-                // A bounded buffer applies backpressure so slow clients cannot grow server memory without limit.
                 onDelta = { deltas.trySendBlocking(it).isSuccess },
                 onDone = { done.trySend(Unit).isSuccess },
                 onError = { errors.trySend(it).isSuccess }

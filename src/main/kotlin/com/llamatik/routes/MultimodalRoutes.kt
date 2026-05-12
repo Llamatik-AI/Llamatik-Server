@@ -7,6 +7,7 @@ import com.llamatik.api.MultimodalInitRequest
 import com.llamatik.api.OkResponse
 import com.llamatik.library.platform.GenStream
 import com.llamatik.multimodal.MultimodalService
+import com.llamatik.multimodal.MultimodalServicePort
 import com.llamatik.util.Sse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -31,11 +32,10 @@ private const val VLM_CANCEL = "$VLM/cancel"
 private const val VLM_RELEASE = "$VLM/release"
 
 @Suppress("TooGenericExceptionCaught")
-fun Route.multimodalRoutes() {
+fun Route.multimodalRoutes(service: MultimodalServicePort = MultimodalService) {
     post(VLM_INIT) {
         val req = call.receive<MultimodalInitRequest>()
-        val res = MultimodalService.initModel(req.modelPath, req.mmprojPath)
-        res.fold(
+        service.initModel(req.modelPath, req.mmprojPath).fold(
             onSuccess = { call.respond(InitModelResponse(ok = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "VLM init failed") }
         )
@@ -57,7 +57,7 @@ fun Route.multimodalRoutes() {
 
             val streamJob = CoroutineScope(currentCoroutineContext()).launch(Dispatchers.IO) {
                 try {
-                    MultimodalService.analyzeImageBytesStream(imageBytes, req.prompt, cb)
+                    service.analyzeImageBytesStream(imageBytes, req.prompt, cb)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {
@@ -74,16 +74,14 @@ fun Route.multimodalRoutes() {
     }
 
     post(VLM_CANCEL) {
-        val res = MultimodalService.cancelAnalysis()
-        res.fold(
+        service.cancelAnalysis().fold(
             onSuccess = { call.respond(OkResponse()) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "VLM cancel failed") }
         )
     }
 
     post(VLM_RELEASE) {
-        val res = MultimodalService.release()
-        res.fold(
+        service.release().fold(
             onSuccess = { call.respond(OkResponse()) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "VLM release failed") }
         )

@@ -4,15 +4,15 @@ import com.llamatik.library.platform.StableDiffusionBridge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-object StableDiffusionService {
+object StableDiffusionService : StableDiffusionServicePort {
 
     private val mutex = Mutex()
 
-    suspend fun initModel(modelPath: String, threads: Int): Result<Boolean> = runCatching {
+    override suspend fun initModel(modelPath: String, threads: Int): Result<Boolean> = runCatching {
         mutex.withLock { StableDiffusionBridge.initModel(modelPath, threads) }
     }
 
-    suspend fun txt2img(
+    override suspend fun txt2img(
         prompt: String,
         negativePrompt: String?,
         width: Int,
@@ -34,7 +34,7 @@ object StableDiffusionService {
         }
     }
 
-    suspend fun img2img(
+    override suspend fun img2img(
         initImageRgba: ByteArray,
         initImageW: Int,
         initImageH: Int,
@@ -64,7 +64,7 @@ object StableDiffusionService {
         }
     }
 
-    suspend fun release(): Result<Unit> = runCatching {
+    override suspend fun release(): Result<Unit> = runCatching {
         mutex.withLock { StableDiffusionBridge.release() }
     }
 }
