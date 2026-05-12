@@ -20,7 +20,7 @@ application {
 }
 
 dependencies {
-    implementation("com.llamatik:library:0.17.1")
+    implementation("com.llamatik:library:1.4.0")
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.auth.jwt)
@@ -53,7 +53,7 @@ dependencies {
     implementation(libs.hikariCP)
     implementation(libs.swagger.codegen)
 
-    //testImplementation(libs.ktor.server.tests.jvm)
+    testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }
 

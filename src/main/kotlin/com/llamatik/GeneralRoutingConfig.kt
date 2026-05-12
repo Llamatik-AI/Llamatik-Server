@@ -2,6 +2,9 @@ package com.llamatik
 
 import com.llamatik.routes.embeddingRoutes
 import com.llamatik.routes.generationRoutes
+import com.llamatik.routes.multimodalRoutes
+import com.llamatik.routes.stableDiffusionRoutes
+import com.llamatik.routes.whisperRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -27,6 +30,9 @@ fun Application.configureGeneralRouting() {
         // Llamatik inference API (mirrors the LlamaBridge surface)
         embeddingRoutes()
         generationRoutes()
+        whisperRoutes()
+        stableDiffusionRoutes()
+        multimodalRoutes()
 
         openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml") {
             codegen = StaticHtmlCodegen()
