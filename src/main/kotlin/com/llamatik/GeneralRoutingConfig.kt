@@ -28,10 +28,6 @@ fun Application.configureGeneralRouting() {
         embeddingRoutes()
         generationRoutes()
 
-        // --- Llamatik LLM API ---
-        embeddingRoutes()
-        generationRoutes()
-
         openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml") {
             codegen = StaticHtmlCodegen()
         }

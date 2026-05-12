@@ -3,6 +3,7 @@ package com.llamatik.util
 import com.llamatik.library.platform.GenStream
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.selects.select
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.Flushable
 import java.io.Writer
 
@@ -81,19 +82,7 @@ object Sse {
     }
 
     private fun jsonString(value: String): String {
-        // Minimal JSON string escaping (enough for SSE payloads).
-        val escaped = buildString {
-            for (c in value) {
-                when (c) {
-                    '\\' -> append("\\\\")
-                    '"' -> append("\\\"")
-                    '\n' -> append("\\n")
-                    '\r' -> append("\\r")
-                    '\t' -> append("\\t")
-                    else -> append(c)
-                }
-            }
-        }
-        return "\"$escaped\""
+        // Delegate escaping to kotlinx.serialization so all JSON control characters stay valid in SSE payloads.
+        return JsonPrimitive(value).toString()
     }
 }

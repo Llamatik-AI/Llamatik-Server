@@ -10,6 +10,7 @@ import com.llamatik.api.InitModelRequest
 import com.llamatik.api.InitModelResponse
 import com.llamatik.api.OkResponse
 import com.llamatik.api.UpdateParamsRequest
+import com.llamatik.library.platform.GenStream
 import com.llamatik.llama.LlamaService
 import com.llamatik.util.Sse
 import io.ktor.http.ContentType
@@ -19,9 +20,16 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 
 private const val GENERATION = "$API_VERSION/generation"
+private const val STREAM_DELTA_BUFFER_CAPACITY = 64
 
 private const val GENERATION_INIT = "$GENERATION/init"
 private const val GENERATION_GENERATE = "$GENERATION/generate"
@@ -107,128 +115,63 @@ fun Route.generationRoutes() {
     }
 
     // --- streaming (SSE) ---
-    post(GENERATION_STREAM) {
-        val req = call.receive<GenerateRequest>()
+    postSseStream<GenerateRequest>(GENERATION_STREAM) { req, cb ->
+        LlamaService.generateStream(req.prompt, cb)
+    }
 
-        val deltas = Channel<String>(capacity = Channel.UNLIMITED)
-        val done = Channel<Unit>(capacity = 1)
-        val errors = Channel<String>(capacity = 1)
+    postSseStream<GenerateWithContextRequest>(GENERATION_STREAM_WITH_CONTEXT) { req, cb ->
+        LlamaService.generateStreamWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, cb)
+    }
 
-        val cb = Sse.genStreamCallback(
-            onDelta = { deltas.trySend(it).isSuccess },
-            onDone = { done.trySend(Unit).isSuccess },
-            onError = { errors.trySend(it).isSuccess }
+    postSseStream<GenerateJsonRequest>(GENERATION_JSON_STREAM) { req, cb ->
+        LlamaService.generateJsonStream(req.prompt, req.jsonSchema, cb)
+    }
+
+    postSseStream<GenerateJsonWithContextRequest>(GENERATION_JSON_STREAM_WITH_CONTEXT) { req, cb ->
+        LlamaService.generateJsonStreamWithContext(
+            req.systemPrompt,
+            req.contextBlock,
+            req.userPrompt,
+            req.jsonSchema,
+            cb
         )
+    }
+}
+
+@Suppress("TooGenericExceptionCaught")
+private inline fun <reified T : Any> Route.postSseStream(
+    path: String,
+    crossinline stream: (T, GenStream) -> Unit
+) {
+    post(path) {
+        val req = call.receive<T>()
 
         call.respondTextWriter(contentType = ContentType.Text.EventStream) {
-            // Start generation on a background thread (native call blocks).
-            // We do it inside the writer so the connection is already open.
-            val t = Thread {
-                try {
-                    LlamaService.generateStream(req.prompt, cb)
-                } catch (e: Throwable) {
-                    errors.trySend(e.message ?: "Streaming failed")
-                }
-            }
-            t.isDaemon = true
-            t.start()
-
-            Sse.pipe(
-                writer = this,
-                deltas = deltas,
-                done = done,
-                errors = errors
+            val deltas = Channel<String>(capacity = STREAM_DELTA_BUFFER_CAPACITY)
+            val done = Channel<Unit>(capacity = 1)
+            val errors = Channel<String>(capacity = 1)
+            val cb = Sse.genStreamCallback(
+                // A bounded buffer applies backpressure so slow clients cannot grow server memory without limit.
+                onDelta = { deltas.trySendBlocking(it).isSuccess },
+                onDone = { done.trySend(Unit).isSuccess },
+                onError = { errors.trySend(it).isSuccess }
             )
-        }
-    }
 
-    post(GENERATION_STREAM_WITH_CONTEXT) {
-        val req = call.receive<GenerateWithContextRequest>()
-
-        val deltas = Channel<String>(capacity = Channel.UNLIMITED)
-        val done = Channel<Unit>(capacity = 1)
-        val errors = Channel<String>(capacity = 1)
-
-        val cb = Sse.genStreamCallback(
-            onDelta = { deltas.trySend(it).isSuccess },
-            onDone = { done.trySend(Unit).isSuccess },
-            onError = { errors.trySend(it).isSuccess }
-        )
-
-        call.respondTextWriter(contentType = ContentType.Text.EventStream) {
-            val t = Thread {
+            val streamJob = CoroutineScope(currentCoroutineContext()).launch(Dispatchers.IO) {
                 try {
-                    LlamaService.generateStreamWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, cb)
+                    stream(req, cb)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Throwable) {
                     errors.trySend(e.message ?: "Streaming failed")
                 }
             }
-            t.isDaemon = true
-            t.start()
 
-            Sse.pipe(writer = this, deltas = deltas, done = done, errors = errors)
-        }
-    }
-
-    post(GENERATION_JSON_STREAM) {
-        val req = call.receive<GenerateJsonRequest>()
-
-        val deltas = Channel<String>(capacity = Channel.UNLIMITED)
-        val done = Channel<Unit>(capacity = 1)
-        val errors = Channel<String>(capacity = 1)
-
-        val cb = Sse.genStreamCallback(
-            onDelta = { deltas.trySend(it).isSuccess },
-            onDone = { done.trySend(Unit).isSuccess },
-            onError = { errors.trySend(it).isSuccess }
-        )
-
-        call.respondTextWriter(contentType = ContentType.Text.EventStream) {
-            val t = Thread {
-                try {
-                    LlamaService.generateJsonStream(req.prompt, req.jsonSchema, cb)
-                } catch (e: Throwable) {
-                    errors.trySend(e.message ?: "Streaming failed")
-                }
+            try {
+                Sse.pipe(writer = this, deltas = deltas, done = done, errors = errors)
+            } finally {
+                streamJob.cancel()
             }
-            t.isDaemon = true
-            t.start()
-
-            Sse.pipe(writer = this, deltas = deltas, done = done, errors = errors)
-        }
-    }
-
-    post(GENERATION_JSON_STREAM_WITH_CONTEXT) {
-        val req = call.receive<GenerateJsonWithContextRequest>()
-
-        val deltas = Channel<String>(capacity = Channel.UNLIMITED)
-        val done = Channel<Unit>(capacity = 1)
-        val errors = Channel<String>(capacity = 1)
-
-        val cb = Sse.genStreamCallback(
-            onDelta = { deltas.trySend(it).isSuccess },
-            onDone = { done.trySend(Unit).isSuccess },
-            onError = { errors.trySend(it).isSuccess }
-        )
-
-        call.respondTextWriter(contentType = ContentType.Text.EventStream) {
-            val t = Thread {
-                try {
-                    LlamaService.generateJsonStreamWithContext(
-                        req.systemPrompt,
-                        req.contextBlock,
-                        req.userPrompt,
-                        req.jsonSchema,
-                        cb
-                    )
-                } catch (e: Throwable) {
-                    errors.trySend(e.message ?: "Streaming failed")
-                }
-            }
-            t.isDaemon = true
-            t.start()
-
-            Sse.pipe(writer = this, deltas = deltas, done = done, errors = errors)
         }
     }
 }

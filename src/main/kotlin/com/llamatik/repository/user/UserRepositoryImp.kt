@@ -6,7 +6,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.statements.InsertStatement
 import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
 
 class UserRepositoryImp : UserRepository {
     override suspend fun addUser(
@@ -27,12 +27,14 @@ class UserRepositoryImp : UserRepository {
     }
 
     override suspend fun findUser(userId: Int) = dbQuery {
-        Users.select(Users.userId).where { Users.userId.eq(userId) }
+        // rowToUser reads every user column, so selecting the full row avoids missing-column failures.
+        Users.selectAll().where { Users.userId.eq(userId) }
             .map { rowToUser(it) }.singleOrNull()
     }
 
     override suspend fun findUserByEmail(email: String) = dbQuery {
-        Users.select(Users.email).where { Users.email.eq(email) }
+        // rowToUser reads every user column, so selecting the full row avoids missing-column failures.
+        Users.selectAll().where { Users.email.eq(email) }
             .map { rowToUser(it) }.singleOrNull()
     }
 

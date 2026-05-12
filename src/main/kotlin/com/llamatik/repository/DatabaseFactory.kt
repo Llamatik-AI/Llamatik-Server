@@ -10,7 +10,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
-private const val MAX_POOL_SIZE = 3
+private const val DEFAULT_MAX_POOL_SIZE = 3
 
 object DatabaseFactory {
     fun init() {
@@ -25,7 +25,8 @@ object DatabaseFactory {
         val config = HikariConfig()
         config.driverClassName = System.getenv("JDBC_DRIVER")
         config.jdbcUrl = System.getenv("JDBC_DATABASE_URL")
-        config.maximumPoolSize = MAX_POOL_SIZE
+        // Keep the old small default, but allow larger deployments to tune DB concurrency without rebuilding.
+        config.maximumPoolSize = configuredMaxPoolSize()
         config.isAutoCommit = false
         config.transactionIsolation = "TRANSACTION_REPEATABLE_READ"
         val user = System.getenv("DB_USER")
@@ -38,6 +39,13 @@ object DatabaseFactory {
         }
         config.validate()
         return HikariDataSource(config)
+    }
+
+    private fun configuredMaxPoolSize(): Int {
+        return System.getenv("DB_MAX_POOL_SIZE")
+            ?.toIntOrNull()
+            ?.takeIf { it > 0 }
+            ?: DEFAULT_MAX_POOL_SIZE
     }
 
     suspend fun <T> dbQuery(block: () -> T): T =

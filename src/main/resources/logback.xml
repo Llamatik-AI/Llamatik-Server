@@ -4,7 +4,8 @@
             <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="trace">
+    <!-- INFO avoids trace-level request noise by default; LOG_LEVEL can raise detail when debugging. -->
+    <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT" />
     </root>
     <logger name="org.eclipse.jetty" level="INFO" />
