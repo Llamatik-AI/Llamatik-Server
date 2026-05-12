@@ -20,7 +20,7 @@ application {
 }
 
 dependencies {
-    implementation("com.llamatik:library:0.17.1")
+    implementation("com.llamatik:library:1.4.0")
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.auth.jwt)

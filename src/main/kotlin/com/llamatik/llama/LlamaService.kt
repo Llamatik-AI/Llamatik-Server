@@ -59,6 +59,11 @@ object LlamaService {
         topP: Float,
         topK: Int,
         repeatPenalty: Float,
+        contextLength: Int,
+        numThreads: Int,
+        useMmap: Boolean,
+        flashAttention: Boolean,
+        batchSize: Int,
     ): Result<Unit> = runCatching {
         mutex.withLock {
             LlamaBridge.updateGenerateParams(
@@ -67,9 +72,43 @@ object LlamaService {
                 topP = topP,
                 topK = topK,
                 repeatPenalty = repeatPenalty,
+                contextLength = contextLength,
+                numThreads = numThreads,
+                useMmap = useMmap,
+                flashAttention = flashAttention,
+                batchSize = batchSize,
             )
         }
     }
+
+    suspend fun generateContinue(prompt: String): Result<String> = runCatching {
+        mutex.withLock { LlamaBridge.generateContinue(prompt) }
+    }
+
+    suspend fun sessionReset(): Result<Boolean> = runCatching {
+        mutex.withLock { LlamaBridge.sessionReset() }
+    }
+
+    suspend fun sessionSave(path: String): Result<Boolean> = runCatching {
+        mutex.withLock { LlamaBridge.sessionSave(path) }
+    }
+
+    suspend fun sessionLoad(path: String): Result<Boolean> = runCatching {
+        mutex.withLock { LlamaBridge.sessionLoad(path) }
+    }
+
+    suspend fun getModelFinetuneType(): Result<String?> = runCatching {
+        mutex.withLock { LlamaBridge.getModelFinetuneType() }
+    }
+
+    suspend fun getModelChatTemplate(): Result<String?> = runCatching {
+        mutex.withLock { LlamaBridge.getModelChatTemplate() }
+    }
+
+    suspend fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): Result<String?> =
+        runCatching {
+            mutex.withLock { LlamaBridge.applyChatTemplate(messages, addAssistantPrefix) }
+        }
 
     /**
      * Streaming generation using the native callback.
