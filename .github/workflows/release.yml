@@ -52,15 +52,16 @@ jobs:
           path: build/reports/tests/test/
           retention-days: 7
 
-      - name: Build shadow JAR
-        run: ./gradlew shadowJar --no-daemon
+      - name: Build fat JAR
+        run: ./gradlew buildFatJar --no-daemon
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload JAR to release
         run: |
-          JAR=$(ls ./build/libs/server-*-all.jar | head -1)
-          echo "Uploading $JAR"
+          JAR=$(find ./build/libs -name "*-all.jar" | head -1)
+          echo "Found JAR: $JAR"
+          [ -n "$JAR" ] || { echo "ERROR: no fat JAR in build/libs"; ls -la ./build/libs/ || true; exit 1; }
           gh release upload "${{ github.event.release.tag_name }}" \
             "${JAR}#llamatik-server-${{ steps.version.outputs.VERSION }}.jar" \
             --clobber

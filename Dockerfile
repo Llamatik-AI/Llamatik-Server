@@ -9,5 +9,5 @@ FROM openjdk:21
 EXPOSE 8080
 WORKDIR /app
 # Copy the versioned shadow jar to a stable runtime name so the entrypoint survives version changes.
-COPY --from=build /home/gradle/src/build/libs/server-*-all.jar /app/server.jar
+COPY --from=build /home/gradle/src/build/libs/*-all.jar /app/server.jar
 ENTRYPOINT ["java","-jar","/app/server.jar"]

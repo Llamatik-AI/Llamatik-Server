@@ -1,4 +1,4 @@
-rootProject.name = "server"
+rootProject.name = "llamatik-server"
 
 pluginManagement {
     repositories {
