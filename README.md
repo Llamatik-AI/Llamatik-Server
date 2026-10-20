@@ -5,11 +5,11 @@
 <h1 align="center">Llamatik Server</h1>
 
 <p align="center">
-  <b>Remote inference backend for the Llamatik ecosystem.</b>
+  <b>Self-hosted inference server fully compatible with the Llamatik library API.</b>
 </p>
 
 <p align="center">
-  Offline-first · Drop-in remote inference · True Llamatik API parity
+  Self-hosted · Full API parity · Zero app-code changes
 </p>
 
 <p align="center">
@@ -27,9 +27,9 @@
 
 ## ✨ What is Llamatik Server?
 
-**Llamatik Server** is a lightweight HTTP backend that exposes the **same API as the [Llamatik Kotlin library](https://github.com/ferranpons/Llamatik)**, enabling seamless remote inference.
+**Llamatik Server** is a self-hosted HTTP backend that exposes the **same API as the [Llamatik Kotlin library](https://github.com/ferranpons/Llamatik)**. Deploy it on any machine and point your app at it — no client-side code changes required.
 
-It mirrors the full `LlamaBridge`, `WhisperBridge`, `StableDiffusionBridge`, and `MultimodalBridge` API surface — so switching from on-device to server inference requires **no changes to your app code**.
+It covers the full `LlamaBridge`, `WhisperBridge`, `StableDiffusionBridge`, and `MultimodalBridge` surface: LLM generation, embeddings, speech-to-text, image generation, and multimodal vision — all over HTTP.
 
 ---
 
