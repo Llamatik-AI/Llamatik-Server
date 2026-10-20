@@ -1,4 +1,6 @@
 FROM gradle:8-jdk21 AS build
+ARG RELEASE_VERSION=0.0.1-SNAPSHOT
+ENV RELEASE_VERSION=${RELEASE_VERSION}
 COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src
 RUN ./gradlew shadowJar --no-daemon

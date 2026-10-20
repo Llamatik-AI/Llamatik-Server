@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.llamatik"
-version = "0.0.1"
+version = (System.getenv("RELEASE_VERSION") ?: "0.0.1-SNAPSHOT")
 
 kotlin {
     jvmToolchain(21)
