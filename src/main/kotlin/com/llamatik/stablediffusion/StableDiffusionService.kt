@@ -1,6 +1,6 @@
 package com.llamatik.stablediffusion
 
-import com.llamatik.library.platform.StableDiffusionBridge
+import com.llamatik.core.platform.StableDiffusionBridge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

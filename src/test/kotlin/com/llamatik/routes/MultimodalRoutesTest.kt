@@ -1,7 +1,7 @@
 package com.llamatik.routes
 
 import com.llamatik.fakes.FakeMultimodalService
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 import com.llamatik.multimodal.MultimodalServicePort
 import com.llamatik.withTestApp
 import io.ktor.client.request.post

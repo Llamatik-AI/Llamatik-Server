@@ -1,6 +1,6 @@
 package com.llamatik.fakes
 
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 import com.llamatik.multimodal.MultimodalServicePort
 
 class FakeMultimodalService(

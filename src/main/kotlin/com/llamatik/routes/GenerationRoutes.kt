@@ -11,6 +11,7 @@ import com.llamatik.api.GenerateResponse
 import com.llamatik.api.GenerateWithContextRequest
 import com.llamatik.api.InitModelRequest
 import com.llamatik.api.InitModelResponse
+import com.llamatik.api.InitMtpRequest
 import com.llamatik.api.ModelChatTemplateResponse
 import com.llamatik.api.ModelFinetuneTypeResponse
 import com.llamatik.api.OkResponse
@@ -18,7 +19,7 @@ import com.llamatik.api.SessionLoadRequest
 import com.llamatik.api.SessionResult
 import com.llamatik.api.SessionSaveRequest
 import com.llamatik.api.UpdateParamsRequest
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 import com.llamatik.llama.LlamaService
 import com.llamatik.llama.LlamaServicePort
 import com.llamatik.util.Sse
@@ -57,6 +58,9 @@ private const val GENERATION_CONTINUE = "$GENERATION/continue"
 private const val GENERATION_SESSION_RESET = "$GENERATION/session/reset"
 private const val GENERATION_SESSION_SAVE = "$GENERATION/session/save"
 private const val GENERATION_SESSION_LOAD = "$GENERATION/session/load"
+private const val GENERATION_CONTINUE_STREAM = "$GENERATION/continueStream"
+private const val GENERATION_MTP_INIT = "$GENERATION/mtp/init"
+private const val GENERATION_MTP_SHUTDOWN = "$GENERATION/mtp/shutdown"
 private const val GENERATION_MODEL_FINETUNE_TYPE = "$GENERATION/model/finetuneType"
 private const val GENERATION_MODEL_CHAT_TEMPLATE = "$GENERATION/model/chatTemplate"
 private const val GENERATION_MODEL_APPLY_CHAT_TEMPLATE = "$GENERATION/model/applyChatTemplate"
@@ -119,7 +123,8 @@ fun Route.generationRoutes(service: LlamaServicePort = LlamaService) {
         val req = call.receive<UpdateParamsRequest>()
         service.updateGenerateParams(
             req.temperature, req.maxTokens, req.topP, req.topK, req.repeatPenalty,
-            req.contextLength, req.numThreads, req.useMmap, req.flashAttention, req.batchSize
+            req.contextLength, req.numThreads, req.useMmap, req.flashAttention, req.batchSize,
+            req.gpuLayers
         ).fold(
             onSuccess = { call.respond(OkResponse()) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Param update failed") }
@@ -188,6 +193,22 @@ fun Route.generationRoutes(service: LlamaServicePort = LlamaService) {
         )
     }
 
+    // --- MTP (speculative decoding) ---
+    post(GENERATION_MTP_INIT) {
+        val req = call.receive<InitMtpRequest>()
+        service.initMtp(req.modelPath, req.draftLen).fold(
+            onSuccess = { call.respond(InitModelResponse(ok = it)) },
+            onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "MTP init failed") }
+        )
+    }
+
+    post(GENERATION_MTP_SHUTDOWN) {
+        service.shutdownMtp().fold(
+            onSuccess = { call.respond(OkResponse()) },
+            onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "MTP shutdown failed") }
+        )
+    }
+
     // --- streaming (SSE) ---
     postSseStream<GenerateRequest>(GENERATION_STREAM) { req, cb ->
         service.generateStream(req.prompt, cb)
@@ -203,6 +224,10 @@ fun Route.generationRoutes(service: LlamaServicePort = LlamaService) {
 
     postSseStream<GenerateJsonWithContextRequest>(GENERATION_JSON_STREAM_WITH_CONTEXT) { req, cb ->
         service.generateJsonStreamWithContext(req.systemPrompt, req.contextBlock, req.userPrompt, req.jsonSchema, cb)
+    }
+
+    postSseStream<GenerateContinueRequest>(GENERATION_CONTINUE_STREAM) { req, cb ->
+        service.generateContinueStream(req.prompt, cb)
     }
 }
 

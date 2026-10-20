@@ -91,4 +91,36 @@ class WhisperRoutesTest {
         }
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
+
+    @Test
+    fun `transcribeSegments returns json`() = withTestApp {
+        val response = client.post("/v1/whisper/transcribeSegments") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"wavPath":"/audio/test.wav"}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+        assertTrue(body["json"]?.jsonPrimitive?.content?.contains("segments") == true)
+    }
+
+    @Test
+    fun `transcribeSegments with all options returns json`() = withTestApp {
+        val response = client.post("/v1/whisper/transcribeSegments") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"wavPath":"/audio/test.wav","language":"en","translate":true,"diarize":false}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+    }
+
+    @Test
+    fun `transcribeSegments returns 400 on failure`() = withTestApp(
+        whisper = FakeWhisperService(transcribeSegmentsResult = Result.failure(RuntimeException("segments error")))
+    ) {
+        val response = client.post("/v1/whisper/transcribeSegments") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"wavPath":"/audio/test.wav"}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("segments error"))
+    }
 }

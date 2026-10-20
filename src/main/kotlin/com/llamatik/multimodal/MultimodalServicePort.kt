@@ -1,6 +1,6 @@
 package com.llamatik.multimodal
 
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 
 interface MultimodalServicePort {
     suspend fun initModel(modelPath: String, mmprojPath: String): Result<Boolean>

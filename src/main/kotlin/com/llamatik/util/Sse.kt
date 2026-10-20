@@ -1,6 +1,6 @@
 package com.llamatik.util
 
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonPrimitive

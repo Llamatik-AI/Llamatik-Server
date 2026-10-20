@@ -1,6 +1,6 @@
 package com.llamatik.fakes
 
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 import com.llamatik.llama.LlamaServicePort
 
 class FakeLlamaService(
@@ -32,7 +32,7 @@ class FakeLlamaService(
     override suspend fun generateJson(prompt: String, jsonSchema: String?) = generateJsonResult
     override suspend fun generateJsonWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, jsonSchema: String?) = generateJsonWithContextResult
     override suspend fun generateContinue(prompt: String) = generateContinueResult
-    override suspend fun updateGenerateParams(temperature: Float, maxTokens: Int, topP: Float, topK: Int, repeatPenalty: Float, contextLength: Int, numThreads: Int, useMmap: Boolean, flashAttention: Boolean, batchSize: Int) = updateParamsResult
+    override suspend fun updateGenerateParams(temperature: Float, maxTokens: Int, topP: Float, topK: Int, repeatPenalty: Float, contextLength: Int, numThreads: Int, useMmap: Boolean, flashAttention: Boolean, batchSize: Int, gpuLayers: Int) = updateParamsResult
     override suspend fun cancelGenerate() = cancelResult
     override suspend fun shutdown() = shutdownResult
     override suspend fun sessionReset() = sessionResetResult
@@ -61,4 +61,12 @@ class FakeLlamaService(
         streamDeltas.forEach { callback.onDelta(it) }
         callback.onComplete()
     }
+
+    override fun generateContinueStream(prompt: String, callback: GenStream) {
+        streamDeltas.forEach { callback.onDelta(it) }
+        callback.onComplete()
+    }
+
+    override suspend fun initMtp(modelPath: String, draftLen: Int): Result<Boolean> = Result.success(true)
+    override suspend fun shutdownMtp(): Result<Unit> = Result.success(Unit)
 }

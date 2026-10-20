@@ -15,7 +15,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Kotlin-JVM-blueviolet" alt="kotlin badge"/>
   <img src="https://img.shields.io/badge/Ktor-3.3-ff4088" alt="ktor badge"/>
-  <img src="https://img.shields.io/badge/Llamatik-1.4.0-orange" alt="llamatik badge"/>
+  <img src="https://img.shields.io/badge/Llamatik-2.1.0-orange" alt="llamatik badge"/>
   <img src="https://img.shields.io/badge/LLM-llama.cpp-orange" alt="llama badge"/>
   <img src="https://img.shields.io/badge/STT-whisper.cpp-blue" alt="whisper badge"/>
   <img src="https://img.shields.io/badge/Image-stablediffusion.cpp-purple" alt="sd badge"/>
@@ -35,13 +35,15 @@ It mirrors the full `LlamaBridge`, `WhisperBridge`, `StableDiffusionBridge`, and
 
 ## 🚀 Features
 
-- ✅ Full parity with **Llamatik library 1.4.0** API
+- ✅ Full parity with **Llamatik core 2.1.0** API
 - ✅ LLM inference via **llama.cpp** — streaming & non-streaming
 - ✅ **Schema-constrained JSON generation**
 - ✅ **Embeddings** for vector search & RAG
-- ✅ **KV session management** — save, load, reset, continue
+- ✅ **KV session management** — save, load, reset, continue, streaming continue
 - ✅ **Chat template** introspection and rendering
-- ✅ **Speech-to-Text** via whisper.cpp (`/v1/whisper`)
+- ✅ **Speculative decoding (MTP)** — multi-token prediction head for faster throughput
+- ✅ **GPU layer offload** — configurable via `gpuLayers` parameter
+- ✅ **Speech-to-Text** via whisper.cpp (`/v1/whisper`) — flat transcription and segment-aware with timestamps & diarization
 - ✅ **Image generation** via stable-diffusion.cpp (`/v1/stablediffusion`)
 - ✅ **Multimodal / VLM** image analysis via streaming SSE (`/v1/multimodal`)
 - ✅ Production-ready **Ktor** server (Apache Tomcat Jakarta)
@@ -176,9 +178,12 @@ All endpoints are prefixed with `/v1`.
 | POST | `/v1/generation/streamWithContext` | Streaming with context (SSE) |
 | POST | `/v1/generation/jsonStream` | Streaming JSON generation (SSE) |
 | POST | `/v1/generation/jsonStreamWithContext` | Streaming JSON with context (SSE) |
+| POST | `/v1/generation/continueStream` | Streaming continue from KV cache (SSE) |
 | POST | `/v1/generation/params` | Update generation parameters |
 | POST | `/v1/generation/cancel` | Cancel ongoing generation |
 | POST | `/v1/generation/shutdown` | Unload model and free native resources |
+| POST | `/v1/generation/mtp/init` | Initialize speculative decoding (MTP head) |
+| POST | `/v1/generation/mtp/shutdown` | Release MTP resources |
 
 #### `POST /v1/generation/generate`
 ```json
@@ -220,13 +225,29 @@ All fields except the first five are optional and default to sensible values.
   "numThreads": 4,
   "useMmap": true,
   "flashAttention": false,
-  "batchSize": 512
+  "batchSize": 512,
+  "gpuLayers": 0
 }
 ```
 
+`gpuLayers` controls how many model layers are offloaded to the GPU. Set to `0` (default) for CPU-only, or `-1` to offload all layers.
+
+#### `POST /v1/generation/mtp/init`
+
+Loads a Multi-Token Prediction (MTP) speculative decoding head from the same GGUF as the generation model. Must be called after `/v1/generation/init`. Supported on models with embedded MTP layers (e.g. Qwen3, GLM-4).
+
+```json
+{ "modelPath": "/models/qwen3.gguf", "draftLen": 3 }
+```
+```json
+{ "ok": true }
+```
+
+`draftLen` is the maximum number of draft tokens per step (1–8, default `3`). Use `POST /v1/generation/mtp/shutdown` to release MTP resources.
+
 #### Streaming (SSE)
 
-Streaming endpoints (`/stream`, `/streamWithContext`, `/jsonStream`, `/jsonStreamWithContext`) respond with `Content-Type: text/event-stream`. Each event is a JSON line:
+Streaming endpoints (`/stream`, `/streamWithContext`, `/jsonStream`, `/jsonStreamWithContext`, `/continueStream`) respond with `Content-Type: text/event-stream`. Each event is a JSON line:
 
 ```
 data: {"event":"delta","text":"Kotlin "}
@@ -262,7 +283,7 @@ data: {"event":"error","message":"..."}
 { "path": "/data/sessions/chat1.bin" }
 ```
 
-After loading, call `POST /v1/generation/continue` to resume generation from the restored state.
+After loading, call `POST /v1/generation/continue` to resume generation from the restored state, or `POST /v1/generation/continueStream` for the streaming (SSE) variant.
 
 ---
 
@@ -305,7 +326,8 @@ After loading, call `POST /v1/generation/continue` to resume generation from the
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/v1/whisper/init` | Load a Whisper model |
-| POST | `/v1/whisper/transcribe` | Transcribe a WAV file |
+| POST | `/v1/whisper/transcribe` | Transcribe a WAV file (flat text) |
+| POST | `/v1/whisper/transcribeSegments` | Transcribe with per-segment timestamps and diarization |
 | POST | `/v1/whisper/release` | Free Whisper native resources |
 
 #### `POST /v1/whisper/init`
@@ -326,6 +348,24 @@ After loading, call `POST /v1/generation/continue` to resume generation from the
 ```
 
 `language` and `initialPrompt` are optional. Provide a 16 kHz, mono, 16-bit PCM WAV for best results.
+
+#### `POST /v1/whisper/transcribeSegments`
+
+Returns a JSON document with per-segment text, start/end timestamps (milliseconds), and speaker-turn markers. Pass `translate: true` to produce an English translation instead of a verbatim transcript. Pass `diarize: true` only with a `…-tdrz` model.
+
+```json
+{
+  "wavPath": "/audio/recording.wav",
+  "language": "en",
+  "translate": false,
+  "diarize": false
+}
+```
+```json
+{
+  "json": "{\"language\":\"en\",\"segments\":[{\"text\":\"Hello.\",\"t0\":0,\"t1\":800,\"speaker_turn_next\":false}]}"
+}
+```
 
 ---
 
@@ -437,12 +477,12 @@ The test suite covers all API endpoints using Ktor's `testApplication` with serv
 | Suite | Tests |
 |---|---|
 | `EmbeddingRoutesTest` | 4 |
-| `GenerationRoutesTest` | 27 |
-| `WhisperRoutesTest` | 7 |
+| `GenerationRoutesTest` | 31 |
+| `WhisperRoutesTest` | 10 |
 | `StableDiffusionRoutesTest` | 10 |
 | `MultimodalRoutesTest` | 7 |
 | `SseTest` | 3 |
-| **Total** | **58** |
+| **Total** | **65** |
 
 ---
 

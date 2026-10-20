@@ -66,6 +66,7 @@ data class UpdateParamsRequest(
     val useMmap: Boolean = true,
     val flashAttention: Boolean = false,
     val batchSize: Int = 512,
+    val gpuLayers: Int = 0,
 )
 
 @Serializable
@@ -157,6 +158,25 @@ data class Img2ImgRequest(
 
 @Serializable
 data class ImageResponse(val imageBase64: String)
+
+// --- MTP (Multi-Token Prediction / speculative decoding) ---
+
+@Serializable
+data class InitMtpRequest(val modelPath: String, val draftLen: Int = 3)
+
+// --- Whisper segments ---
+
+@Serializable
+data class TranscribeSegmentsRequest(
+    val wavPath: String,
+    val language: String? = null,
+    val initialPrompt: String? = null,
+    val translate: Boolean = false,
+    val diarize: Boolean = false,
+)
+
+@Serializable
+data class TranscribeSegmentsResponse(val json: String)
 
 // --- Multimodal (VLM) ---
 

@@ -1,7 +1,7 @@
 package com.llamatik.llama
 
-import com.llamatik.library.platform.GenStream
-import com.llamatik.library.platform.LlamaBridge
+import com.llamatik.core.platform.GenStream
+import com.llamatik.core.platform.LlamaBridge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -60,6 +60,7 @@ object LlamaService : LlamaServicePort {
         useMmap: Boolean,
         flashAttention: Boolean,
         batchSize: Int,
+        gpuLayers: Int,
     ): Result<Unit> = runCatching {
         mutex.withLock {
             LlamaBridge.updateGenerateParams(
@@ -73,6 +74,7 @@ object LlamaService : LlamaServicePort {
                 useMmap = useMmap,
                 flashAttention = flashAttention,
                 batchSize = batchSize,
+                gpuLayers = gpuLayers,
             )
         }
     }
@@ -134,5 +136,17 @@ object LlamaService : LlamaServicePort {
 
     override suspend fun shutdown(): Result<Unit> = runCatching {
         mutex.withLock { LlamaBridge.shutdown() }
+    }
+
+    override fun generateContinueStream(prompt: String, callback: GenStream) {
+        LlamaBridge.generateContinueStream(prompt, callback)
+    }
+
+    override suspend fun initMtp(modelPath: String, draftLen: Int): Result<Boolean> = runCatching {
+        mutex.withLock { LlamaBridge.initMtp(modelPath, draftLen) }
+    }
+
+    override suspend fun shutdownMtp(): Result<Unit> = runCatching {
+        mutex.withLock { LlamaBridge.shutdownMtp() }
     }
 }
