@@ -41,6 +41,8 @@ jobs:
 
       - name: Run tests
         run: ./gradlew test --no-daemon
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
 
       - name: Upload test reports
         if: always()
@@ -57,8 +59,10 @@ jobs:
 
       - name: Upload JAR to release
         run: |
+          JAR=$(ls ./build/libs/server-*-all.jar | head -1)
+          echo "Uploading $JAR"
           gh release upload "${{ github.event.release.tag_name }}" \
-            "./build/libs/server-${{ steps.version.outputs.VERSION }}-all.jar#llamatik-server-${{ steps.version.outputs.VERSION }}.jar" \
+            "${JAR}#llamatik-server-${{ steps.version.outputs.VERSION }}.jar" \
             --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
