@@ -304,6 +304,55 @@ class GenerationRoutesTest {
         assertTrue(response.bodyAsText().contains("\"event\":\"done\""))
     }
 
+    // --- MTP ---
+
+    @Test
+    fun `mtp init returns ok`() = withTestApp {
+        val response = client.post("/v1/generation/mtp/init") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"modelPath":"/models/llama.gguf","draftLen":3}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+        assertEquals("true", body["ok"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `mtp shutdown returns ok`() = withTestApp {
+        val response = client.post("/v1/generation/mtp/shutdown") {
+            contentType(ContentType.Application.Json)
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+        assertEquals("true", body["ok"]?.jsonPrimitive?.content)
+    }
+
+    // --- continueStream SSE ---
+
+    @Test
+    fun `continueStream endpoint returns SSE events`() = withTestApp {
+        val response = client.post("/v1/generation/continueStream") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"prompt":"continue this"}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals("text/event-stream", response.contentType()?.contentType + "/" + response.contentType()?.contentSubtype)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"event\":\"delta\""))
+        assertTrue(body.contains("\"event\":\"done\""))
+    }
+
+    // --- gpuLayers param ---
+
+    @Test
+    fun `update params with gpuLayers returns ok`() = withTestApp {
+        val response = client.post("/v1/generation/params") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"temperature":0.8,"maxTokens":512,"topP":0.9,"topK":40,"repeatPenalty":1.1,"gpuLayers":32}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+    }
+
     @Test
     fun `stream sends error event on service failure`() = withTestApp(
         llama = FakeLlamaService(
@@ -317,7 +366,7 @@ class GenerationRoutesTest {
             }
         }.let {
             object : com.llamatik.llama.LlamaServicePort by it {
-                override fun generateStream(prompt: String, callback: com.llamatik.library.platform.GenStream) {
+                override fun generateStream(prompt: String, callback: com.llamatik.core.platform.GenStream) {
                     callback.onError("stream broke")
                 }
             }

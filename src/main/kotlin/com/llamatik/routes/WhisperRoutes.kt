@@ -5,6 +5,8 @@ import com.llamatik.api.InitModelResponse
 import com.llamatik.api.OkResponse
 import com.llamatik.api.TranscribeRequest
 import com.llamatik.api.TranscribeResponse
+import com.llamatik.api.TranscribeSegmentsRequest
+import com.llamatik.api.TranscribeSegmentsResponse
 import com.llamatik.api.WhisperInitRequest
 import com.llamatik.whisper.WhisperService
 import com.llamatik.whisper.WhisperServicePort
@@ -17,6 +19,7 @@ import io.ktor.server.routing.post
 private const val WHISPER = "$API_VERSION/whisper"
 private const val WHISPER_INIT = "$WHISPER/init"
 private const val WHISPER_TRANSCRIBE = "$WHISPER/transcribe"
+private const val WHISPER_TRANSCRIBE_SEGMENTS = "$WHISPER/transcribeSegments"
 private const val WHISPER_RELEASE = "$WHISPER/release"
 
 fun Route.whisperRoutes(service: WhisperServicePort = WhisperService) {
@@ -33,6 +36,14 @@ fun Route.whisperRoutes(service: WhisperServicePort = WhisperService) {
         service.transcribeWav(req.wavPath, req.language, req.initialPrompt).fold(
             onSuccess = { call.respond(TranscribeResponse(text = it)) },
             onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Transcription failed") }
+        )
+    }
+
+    post(WHISPER_TRANSCRIBE_SEGMENTS) {
+        val req = call.receive<TranscribeSegmentsRequest>()
+        service.transcribeWavSegments(req.wavPath, req.language, req.initialPrompt, req.translate, req.diarize).fold(
+            onSuccess = { call.respond(TranscribeSegmentsResponse(json = it)) },
+            onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Segment transcription failed") }
         )
     }
 

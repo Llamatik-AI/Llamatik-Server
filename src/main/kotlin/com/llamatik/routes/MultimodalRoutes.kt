@@ -5,7 +5,7 @@ import com.llamatik.api.AnalyzeImageRequest
 import com.llamatik.api.InitModelResponse
 import com.llamatik.api.MultimodalInitRequest
 import com.llamatik.api.OkResponse
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 import com.llamatik.multimodal.MultimodalService
 import com.llamatik.multimodal.MultimodalServicePort
 import com.llamatik.util.Sse

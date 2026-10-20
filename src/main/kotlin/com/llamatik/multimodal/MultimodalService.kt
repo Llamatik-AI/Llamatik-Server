@@ -1,7 +1,7 @@
 package com.llamatik.multimodal
 
-import com.llamatik.library.platform.GenStream
-import com.llamatik.library.platform.MultimodalBridge
+import com.llamatik.core.platform.GenStream
+import com.llamatik.core.platform.MultimodalBridge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

@@ -1,6 +1,6 @@
 package com.llamatik.llama
 
-import com.llamatik.library.platform.GenStream
+import com.llamatik.core.platform.GenStream
 
 interface LlamaServicePort {
     suspend fun initModel(modelPath: String): Result<Boolean>
@@ -11,7 +11,7 @@ interface LlamaServicePort {
     suspend fun generateJson(prompt: String, jsonSchema: String?): Result<String>
     suspend fun generateJsonWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, jsonSchema: String?): Result<String>
     suspend fun generateContinue(prompt: String): Result<String>
-    suspend fun updateGenerateParams(temperature: Float, maxTokens: Int, topP: Float, topK: Int, repeatPenalty: Float, contextLength: Int, numThreads: Int, useMmap: Boolean, flashAttention: Boolean, batchSize: Int): Result<Unit>
+    suspend fun updateGenerateParams(temperature: Float, maxTokens: Int, topP: Float, topK: Int, repeatPenalty: Float, contextLength: Int, numThreads: Int, useMmap: Boolean, flashAttention: Boolean, batchSize: Int, gpuLayers: Int = 0): Result<Unit>
     suspend fun cancelGenerate(): Result<Unit>
     suspend fun shutdown(): Result<Unit>
     suspend fun sessionReset(): Result<Boolean>
@@ -24,4 +24,7 @@ interface LlamaServicePort {
     fun generateStreamWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, callback: GenStream)
     fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream)
     fun generateJsonStreamWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, jsonSchema: String?, callback: GenStream)
+    fun generateContinueStream(prompt: String, callback: GenStream)
+    suspend fun initMtp(modelPath: String, draftLen: Int = 3): Result<Boolean>
+    suspend fun shutdownMtp(): Result<Unit>
 }
